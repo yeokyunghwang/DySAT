@@ -1,5 +1,6 @@
 from tensorflow.python.ops import math_ops
-from inits import *
+# from inits import *
+from models.DySAT.inits import *
 
 conv1d = tf.layers.conv1d
 
