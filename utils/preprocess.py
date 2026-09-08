@@ -11,12 +11,23 @@ FLAGS = flags.FLAGS
 np.random.seed(123)
 
 
+# def load_graphs(dataset_str):
+#     """Load graph snapshots given the name of dataset"""
+#     graphs = np.load("data/{}/{}".format(dataset_str, "graphs.npz"), allow_pickle=True)['graph']
+#     print("Loaded {} graphs ".format(len(graphs)))
+#     adj_matrices = map(lambda x: nx.adjacency_matrix(x), graphs)
+#     return graphs, adj_matrices
+
+
 def load_graphs(dataset_str):
-    """Load graph snapshots given the name of dataset"""
-    graphs = np.load("data/{}/{}".format(dataset_str, "graphs.npz"), allow_pickle=True)['graph']
-    print("Loaded {} graphs ".format(len(graphs)))
-    adj_matrices = map(lambda x: nx.adjacency_matrix(x), graphs)
-    return graphs, adj_matrices
+    """
+    Load yearly adjacency matrices directly as scipy sparse.
+    """
+    years = np.load("data/{}/years.npy".format(dataset_str))
+    adj_matrices = [sp.load_npz("data/{}/adj_{}.npz".format(dataset_str, y))
+                    for y in years]
+    print("Loaded {} snapshots".format(len(adj_matrices)))
+    return adj_matrices, adj_matrices
 
 
 def load_feats(dataset_str):
