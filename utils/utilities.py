@@ -4,7 +4,8 @@ import networkx as nx
 import tensorflow as tf
 from collections import defaultdict
 from sklearn.preprocessing import MultiLabelBinarizer
-from random_walk import Graph_RandomWalk
+# from random_walk import Graph_RandomWalk
+from utils.random_walk import Graph_RandomWalk
 
 import scipy.sparse as sp
 
