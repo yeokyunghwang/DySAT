@@ -123,16 +123,22 @@ context_pairs_train = get_context_pairs(graphs, num_time_steps)
 train_edges, train_edges_false, val_edges, val_edges_false, test_edges, test_edges_false = \
     get_evaluation_data(adjs, num_time_steps, FLAGS.dataset)
 
-# Create the adj_train so that it includes nodes from (t+1) but only edges from t: this is for the purpose of
-# inductive testing.
-new_G = nx.MultiGraph()
-new_G.add_nodes_from(graphs[num_time_steps - 1].nodes(data=True))
+# # Create the adj_train so that it includes nodes from (t+1) but only edges from t: this is for the purpose of
+# # inductive testing.
+# new_G = nx.MultiGraph()
+# new_G.add_nodes_from(graphs[num_time_steps - 1].nodes(data=True))
 
-for e in graphs[num_time_steps - 2].edges():
-    new_G.add_edge(e[0], e[1])
+# for e in graphs[num_time_steps - 2].edges():
+#     new_G.add_edge(e[0], e[1])
 
-graphs[num_time_steps - 1] = new_G
-adjs[num_time_steps - 1] = nx.adjacency_matrix(new_G)
+# graphs[num_time_steps - 1] = new_G
+# adjs[num_time_steps - 1] = nx.adjacency_matrix(new_G)
+
+# The original code replaces the last snapshot with one that keeps its nodes
+# but takes its edges from t-1, so that link prediction at t is inductive.
+# That is removed here: the aim is an embedding for each of the 34 years as it
+# actually was, not a held-out prediction target, and overwriting 2023 with
+# 2022's edges would silently corrupt the last year's representation.
 
 print("# train: {}, # val: {}, # test: {}".format(len(train_edges), len(val_edges), len(test_edges)))
 logging.info("# train: {}, # val: {}, # test: {}".format(len(train_edges), len(val_edges), len(test_edges)))
@@ -224,9 +230,14 @@ for epoch in range(FLAGS.epochs):
         feed_dict.update({placeholders['temporal_drop']: 0.0})
         if FLAGS.window < 0:
             assert FLAGS.time_steps == model.final_output_embeddings.get_shape()[1]
-        emb = sess.run(model.final_output_embeddings, feed_dict=feed_dict)[:,
-              model.final_output_embeddings.get_shape()[1] - 2, :]
-        emb = np.array(emb)
+        # emb = sess.run(model.final_output_embeddings, feed_dict=feed_dict)[:,
+        #       model.final_output_embeddings.get_shape()[1] - 2, :]
+        # emb = np.array(emb)
+        
+        emb_all = np.array(sess.run(model.final_output_embeddings,
+                                    feed_dict=feed_dict))       # [N, T, F]
+        emb = emb_all[:, model.final_output_embeddings.get_shape()[1] - 2, :]
+        
         # Use external classifier to get validation and test results.
         val_results, test_results, _, _ = evaluate_classifier(train_edges,
                                                               train_edges_false, val_edges, val_edges_false, test_edges,
@@ -265,6 +276,16 @@ logging.info("Best epoch test results {}\n".format(test_results))
 write_to_csv(val_results, output_file, FLAGS.model, FLAGS.dataset, num_time_steps, mod='val')
 write_to_csv(test_results, output_file, FLAGS.model, FLAGS.dataset, num_time_steps, mod='test')
 
+# # Save final embeddings in the save directory.
+# emb = epochs_embeds[best_epoch]
+# np.savez(SAVE_DIR + '/{}_embs_{}_{}.npz'.format(FLAGS.model, FLAGS.dataset, FLAGS.time_steps - 2), data=emb)
+
 # Save final embeddings in the save directory.
+# The original saves only the second-to-last snapshot, which is all the link
+# prediction benchmark needs. The full [N, T, F] tensor is kept as well, since
+# every year's position is the object of interest here.
 emb = epochs_embeds[best_epoch]
-np.savez(SAVE_DIR + '/{}_embs_{}_{}.npz'.format(FLAGS.model, FLAGS.dataset, FLAGS.time_steps - 2), data=emb)
+np.savez(SAVE_DIR + '/{}_embs_{}_{}.npz'.format(FLAGS.model, FLAGS.dataset,
+                                                FLAGS.time_steps - 2), data=emb)
+np.save(SAVE_DIR + '/{}_embs_{}_all.npy'.format(FLAGS.model, FLAGS.dataset),
+        emb_all)
