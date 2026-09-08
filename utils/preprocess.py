@@ -123,7 +123,11 @@ def get_context_pairs(graphs, num_time_steps):
         print("Computing training pairs ...")
         context_pairs_train = []
         for i in range(0, num_time_steps):
-            context_pairs_train.append(run_random_walks_n2v(graphs[i], graphs[i].nodes()))
+            # context_pairs_train.append(run_random_walks_n2v(graphs[i], graphs[i].nodes()))
+            # graphs[i] is a sparse matrix now, not a networkx graph, so there
+            # is no .nodes(); the walk sampler takes the matrix directly and
+            # starts from every node that has at least one edge.
+            context_pairs_train.append(run_random_walks_n2v(graphs[i]))
         dill.dump(context_pairs_train, open(load_path, 'wb'))
         print ("Saved pairs")
 
