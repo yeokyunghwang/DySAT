@@ -33,29 +33,80 @@ def sample_mask(idx, l):
 
 """Random walk-based pair generation."""
 
-def run_random_walks_n2v(graph, nodes, num_walks=10, walk_len=40):
-    """ In: Graph and list of nodes
-        Out: (target, context) pairs from random walk sampling using the sampling strategy of node2vec (deepwalk)"""
+# def run_random_walks_n2v(graph, nodes, num_walks=10, walk_len=40):
+#     """ In: Graph and list of nodes
+#         Out: (target, context) pairs from random walk sampling using the sampling strategy of node2vec (deepwalk)"""
+#     walk_len = FLAGS.walk_len
+#     nx_G = nx.Graph()
+#     adj = nx.adjacency_matrix(graph)
+#     for e in graph.edges():
+#         nx_G.add_edge(e[0], e[1])
+
+#     for edge in graph.edges():
+#         nx_G[edge[0]][edge[1]]['weight'] = adj[edge[0], edge[1]]
+
+#     G = Graph_RandomWalk(nx_G, False, 1.0, 1.0)
+#     G.preprocess_transition_probs()
+#     walks = G.simulate_walks(num_walks, walk_len)
+#     WINDOW_SIZE = 10
+#     pairs = defaultdict(lambda: [])
+#     pairs_cnt = 0
+#     for walk in walks:
+#         for word_index, word in enumerate(walk):
+#             for nb_word in walk[max(word_index - WINDOW_SIZE, 0): min(word_index + WINDOW_SIZE, len(walk)) + 1]:
+#                 if nb_word != word:
+#                     pairs[word].append(nb_word)
+#                     pairs_cnt += 1
+#     print("# nodes with random walk samples: {}".format(len(pairs)))
+#     print("# sampled pairs: {}".format(pairs_cnt))
+#     return pairs
+
+
+def run_random_walks_n2v(adj, nodes=None, num_walks=10, walk_len=40):
+    """
+    Weighted random walks and their co-occurrence pairs, from a sparse matrix.
+    """
     walk_len = FLAGS.walk_len
-    nx_G = nx.Graph()
-    adj = nx.adjacency_matrix(graph)
-    for e in graph.edges():
-        nx_G.add_edge(e[0], e[1])
+    A = sp.csr_matrix(adj)
+    indptr, indices, data = A.indptr, A.indices, A.data
 
-    for edge in graph.edges():
-        nx_G[edge[0]][edge[1]]['weight'] = adj[edge[0], edge[1]]
+    cum = np.zeros_like(data, dtype=np.float64)
+    for v in range(A.shape[0]):
+        lo, hi = indptr[v], indptr[v + 1]
+        if hi > lo:
+            cum[lo:hi] = np.cumsum(data[lo:hi])
 
-    G = Graph_RandomWalk(nx_G, False, 1.0, 1.0)
-    G.preprocess_transition_probs()
-    walks = G.simulate_walks(num_walks, walk_len)
+    deg = np.diff(indptr)
+    starts = np.where(deg > 0)[0]
+    if starts.size == 0:
+        return defaultdict(lambda: [])
+
+    rng = np.random.RandomState(123)
+    walks = np.empty((starts.size * num_walks, walk_len), dtype=np.int64)
+    walks[:, 0] = np.tile(starts, num_walks)
+
+    for step in range(1, walk_len):
+        cur = walks[:, step - 1]
+        lo, hi = indptr[cur], indptr[cur + 1]
+        alive = hi > lo
+        nxt = cur.copy()                       # dead ends stay put
+        if alive.any():
+            l, h = lo[alive], hi[alive]
+            r = rng.rand(int(alive.sum())) * cum[h - 1]
+            pos = np.array([np.searchsorted(cum[a:b], x)
+                            for a, b, x in zip(l, h, r)])
+            nxt[alive] = indices[l + np.minimum(pos, h - l - 1)]
+        walks[:, step] = nxt
+
     WINDOW_SIZE = 10
     pairs = defaultdict(lambda: [])
     pairs_cnt = 0
     for walk in walks:
         for word_index, word in enumerate(walk):
-            for nb_word in walk[max(word_index - WINDOW_SIZE, 0): min(word_index + WINDOW_SIZE, len(walk)) + 1]:
+            for nb_word in walk[max(word_index - WINDOW_SIZE, 0):
+                                min(word_index + WINDOW_SIZE, len(walk)) + 1]:
                 if nb_word != word:
-                    pairs[word].append(nb_word)
+                    pairs[int(word)].append(int(nb_word))
                     pairs_cnt += 1
     print("# nodes with random walk samples: {}".format(len(pairs)))
     print("# sampled pairs: {}".format(pairs_cnt))
