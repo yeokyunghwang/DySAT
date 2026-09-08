@@ -3,7 +3,12 @@ import numpy as np
 import networkx as nx
 import scipy.sparse as sp
 import tensorflow as tf
-from utilities import run_random_walks_n2v
+# from utilities import run_random_walks_n2v
+
+# Python 3 removed implicit relative imports, so the bare module name fails
+# once utils/ is imported as a package.
+from utils.utilities import run_random_walks_n2v
+
 import dill
 
 flags = tf.app.flags
