@@ -145,14 +145,20 @@ print("# train: {}, # val: {}, # test: {}".format(len(train_edges), len(val_edge
 logging.info("# train: {}, # val: {}, # test: {}".format(len(train_edges), len(val_edges), len(test_edges)))
 
 # Normalize and convert adj. to sparse tuple format (to provide as input via SparseTensor)
-adj_train = map(lambda adj: normalize_graph_gcn(adj), adjs)
+# adj_train = map(lambda adj: normalize_graph_gcn(adj), adjs)
+adj_train = list(map(lambda adj: normalize_graph_gcn(adj), adjs))
 
 if FLAGS.featureless:  # Use 1-hot matrix in case of featureless.
     feats = [scipy.sparse.identity(adjs[num_time_steps - 1].shape[0]).tocsr()[range(0, x.shape[0]), :] for x in feats if
              x.shape[0] <= feats[num_time_steps - 1].shape[0]]
 num_features = feats[0].shape[1]
 
-feats_train = map(lambda feat: preprocess_features(feat)[1], feats)
+# feats_train = map(lambda feat: preprocess_features(feat)[1], feats)
+# num_features_nonzero = [x[1].shape[0] for x in feats_train]
+
+# The list comprehension below consumes this, so an iterator would leave
+# feats_train empty by the time it reaches the minibatch iterator.
+feats_train = list(map(lambda feat: preprocess_features(feat)[1], feats))
 num_features_nonzero = [x[1].shape[0] for x in feats_train]
 
 def construct_placeholders(num_time_steps):
