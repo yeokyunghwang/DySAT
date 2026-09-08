@@ -1,4 +1,5 @@
-from layers import *
+# from layers import *
+from models.DySAT.layers import *
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
