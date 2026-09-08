@@ -6,6 +6,8 @@ from collections import defaultdict
 from sklearn.preprocessing import MultiLabelBinarizer
 from random_walk import Graph_RandomWalk
 
+import scipy.sparse as sp
+
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
