@@ -53,7 +53,10 @@ flags.DEFINE_integer('seed', 7, 'Random seed')
 
 # Directory structure.
 flags.DEFINE_string('save_dir', "output", 'Save dir defaults to output/ within the base directory')
-flags.DEFINE_string('log_dir', "log", 'Log dir defaults to log/ within the base directory')
+# flags.DEFINE_string('log_dir', "log", 'Log dir defaults to log/ within the base directory')
+# absl.logging already registers 'log_dir' in TF 1.15, so the original name
+# collides. Renamed here; every use of FLAGS.log_dir is updated to match.
+flags.DEFINE_string('dysat_log_dir', "log", 'Log dir defaults to log/ within the base directory')
 flags.DEFINE_string('csv_dir', "csv", 'CSV dir defaults to csv/ within the base directory')
 flags.DEFINE_string('model_dir', "model", 'Model dir defaults to model/ within the base directory')
 flags.DEFINE_integer('window', -1, 'Window for temporal attention (default : -1 => full)')
