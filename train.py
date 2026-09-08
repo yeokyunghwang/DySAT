@@ -39,7 +39,8 @@ with open(config_file, 'r') as f:
 print("Updated flags", FLAGS.flag_values_dict().items())
 
 # Set paths of sub-directories.
-LOG_DIR = output_dir + FLAGS.log_dir
+# LOG_DIR = output_dir + FLAGS.log_dir
+LOG_DIR = output_dir + FLAGS.dysat_log_dir
 SAVE_DIR = output_dir + FLAGS.save_dir
 CSV_DIR = output_dir + FLAGS.csv_dir
 MODEL_DIR = output_dir + FLAGS.model_dir
