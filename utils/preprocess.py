@@ -113,25 +113,55 @@ def get_context_pairs_incremental(graph):
     return run_random_walks_n2v(graph, graph.nodes())
 
 
-def get_context_pairs(graphs, num_time_steps):
-    """ Load/generate context pairs for each snapshot through random walk sampling."""
-    load_path = "data/{}/train_pairs_n2v_{}.pkl".format(FLAGS.dataset, str(num_time_steps - 2))
-    try:
-        context_pairs_train = dill.load(open(load_path, 'rb'))
-        print("Loaded context pairs from pkl file directly")
-    except (IOError, EOFError):
-        print("Computing training pairs ...")
-        context_pairs_train = []
-        for i in range(0, num_time_steps):
-            # context_pairs_train.append(run_random_walks_n2v(graphs[i], graphs[i].nodes()))
-            # graphs[i] is a sparse matrix now, not a networkx graph, so there
-            # is no .nodes(); the walk sampler takes the matrix directly and
-            # starts from every node that has at least one edge.
-            context_pairs_train.append(run_random_walks_n2v(graphs[i]))
-        dill.dump(context_pairs_train, open(load_path, 'wb'))
-        print ("Saved pairs")
+# def get_context_pairs(graphs, num_time_steps):
+#     """ Load/generate context pairs for each snapshot through random walk sampling."""
+#     load_path = "data/{}/train_pairs_n2v_{}.pkl".format(FLAGS.dataset, str(num_time_steps - 2))
+#     try:
+#         context_pairs_train = dill.load(open(load_path, 'rb'))
+#         print("Loaded context pairs from pkl file directly")
+#     except (IOError, EOFError):
+#         print("Computing training pairs ...")
+#         context_pairs_train = []
+#         for i in range(0, num_time_steps):
+#             # context_pairs_train.append(run_random_walks_n2v(graphs[i], graphs[i].nodes()))
+#             # graphs[i] is a sparse matrix now, not a networkx graph, so there
+#             # is no .nodes(); the walk sampler takes the matrix directly and
+#             # starts from every node that has at least one edge.
+#             context_pairs_train.append(run_random_walks_n2v(graphs[i]))
+#         dill.dump(context_pairs_train, open(load_path, 'wb'))
+#         print ("Saved pairs")
 
-    return context_pairs_train
+#     return context_pairs_train
+
+class AdjacencyContext(object):
+    """
+    Neighbour lists read straight from the CSR matrix.
+
+    Substitutes for the walk-derived context dictionary. The minibatch iterator
+    only needs context_pairs[t][n] to be a sequence of positive partners for
+    node n, so the adjacency row serves directly and nothing has to be stored:
+    a single snapshot here has about 2M edges, which through walks with
+    window 10 expands to on the order of 1e8 pairs per year, and all 34 years
+    are held at once before training starts.
+    """
+    def __init__(self, adj):
+        self.adj = sp.csr_matrix(adj)
+
+    def __getitem__(self, n):
+        lo, hi = self.adj.indptr[n], self.adj.indptr[n + 1]
+        return self.adj.indices[lo:hi]
+
+
+def get_context_pairs(graphs, num_time_steps):
+    """
+    Positive pairs for the reconstruction loss: the observed edges themselves.
+
+    Edge reconstruction is a standard objective for dynamic graph embedding
+    (Goyal et al. 2018; Cai et al. 2018). The co-occurrence networks here are
+    unions of per-document cliques, so most 2-hop neighbours are already direct
+    edges and walks add less than they would on a sparser graph.
+    """
+    return [AdjacencyContext(graphs[i]) for i in range(num_time_steps)]
 
 
 def get_evaluation_data(adjs, num_time_steps, dataset):
