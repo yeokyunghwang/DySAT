@@ -4,6 +4,8 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
+import scipy.sparse as sp
+
 flags = tf.app.flags
 FLAGS = flags.FLAGS
 
@@ -32,23 +34,38 @@ class NodeMinibatchIterator(object):
         self.degs = self.construct_degs()
         self.context_pairs = context_pairs
         self.max_positive = FLAGS.neg_sample_size
-        self.train_nodes = self.graphs[num_time_steps-1].nodes() # all nodes in the graph.
+        # self.train_nodes = self.graphs[num_time_steps-1].nodes() # all nodes in the graph.
+        self.train_nodes = np.arange(self.graphs[num_time_steps-1].shape[0])
         print ("# train nodes", len(self.train_nodes))
+
+    # def construct_degs(self):
+    #     """ Compute node degrees in each graph snapshot."""
+    #     degs = []
+    #     for i in range(0, self.num_time_steps):
+    #         G = self.graphs[i]
+    #         deg = np.zeros((len(G.nodes()),))
+    #         for nodeid in G.nodes():
+    #             neighbors = np.array(list(G.neighbors(nodeid)))
+    #             deg[nodeid] = len(neighbors)
+    #         degs.append(deg)
+    #     min_t = 0
+    #     if FLAGS.window > 0:
+    #         min_t = max(self.num_time_steps - FLAGS.window - 1, 0)
+    #     return degs[min_t:]
 
     def construct_degs(self):
         """ Compute node degrees in each graph snapshot."""
         degs = []
         for i in range(0, self.num_time_steps):
-            G = self.graphs[i]
-            deg = np.zeros((len(G.nodes()),))
-            for nodeid in G.nodes():
-                neighbors = np.array(list(G.neighbors(nodeid)))
-                deg[nodeid] = len(neighbors)
-            degs.append(deg)
+            # graphs[i] is a sparse matrix now; the row pointer differences are
+            # the degrees, with no networkx object involved.
+            adj = sp.csr_matrix(self.graphs[i])
+            degs.append(np.diff(adj.indptr).astype(float))
         min_t = 0
         if FLAGS.window > 0:
             min_t = max(self.num_time_steps - FLAGS.window - 1, 0)
         return degs[min_t:]
+            
 
     def end(self):
         return self.batch_num * self.batch_size >= len(self.train_nodes)
@@ -107,7 +124,12 @@ class NodeMinibatchIterator(object):
         self.train_nodes = np.random.permutation(self.train_nodes)
         self.batch_num = 0
 
+    # def test_reset(self):
+    #     """ Reset batch number"""
+    #     self.train_nodes =  self.graphs[self.num_time_steps-1].nodes()
+    #     self.batch_num = 0
+
     def test_reset(self):
         """ Reset batch number"""
-        self.train_nodes =  self.graphs[self.num_time_steps-1].nodes()
+        self.train_nodes = np.arange(self.graphs[self.num_time_steps-1].shape[0])
         self.batch_num = 0
