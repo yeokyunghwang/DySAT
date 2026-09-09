@@ -170,8 +170,8 @@ class DySAT(Model):
             "node_embedding_table",
             shape=[FLAGS.num_nodes, self.num_features],
             initializer=tf.contrib.layers.xavier_initializer())
+        node_table = tf.expand_dims(node_table, axis=0)          # [1, N, F]        
         input_list = [node_table for _ in range(self.num_time_steps)]
-
                       
         for layer in self.structural_attention_layers:
             attn_outputs = []
