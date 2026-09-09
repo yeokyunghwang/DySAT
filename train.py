@@ -208,11 +208,9 @@ print("# training batches per epoch", minibatchIterator.num_training_batches())
 
 model = DySAT(placeholders, num_features, num_features_nonzero, minibatchIterator.degs)
 sess.run(tf.global_variables_initializer())
+saver = tf.train.Saver()
 
-# Result accumulator variables.
-epochs_test_result = defaultdict(lambda: [])
-epochs_val_result = defaultdict(lambda: [])
-epochs_embeds = []
+best_loss, best_epoch, wait, patience = float("inf"), 0, 0, 10
 epochs_attn_wts_all = []
 
 for epoch in range(FLAGS.epochs):
@@ -242,78 +240,32 @@ for epoch in range(FLAGS.epochs):
 
     print("Time for epoch ", epoch_time)
     logging.info("Time for epoch : {}".format(epoch_time))
-    if (epoch + 1) % FLAGS.test_freq == 0:
-        minibatchIterator.test_reset()
-        emb = []
-        feed_dict.update({placeholders['spatial_drop']: 0.0})
-        feed_dict.update({placeholders['temporal_drop']: 0.0})
-        if FLAGS.window < 0:
-            assert FLAGS.time_steps == model.final_output_embeddings.get_shape()[1]
-        # emb = sess.run(model.final_output_embeddings, feed_dict=feed_dict)[:,
-        #       model.final_output_embeddings.get_shape()[1] - 2, :]
-        # emb = np.array(emb)
-        
-        emb_all = np.array(sess.run(model.final_output_embeddings,
-                                    feed_dict=feed_dict))       # [N, T, F]
-        emb = emb_all[:, model.final_output_embeddings.get_shape()[1] - 2, :]
-        
-        # Use external classifier to get validation and test results.
-        # val_results, test_results, _, _ = evaluate_classifier(train_edges,
-        #                                                       train_edges_false, val_edges, val_edges_false, test_edges,
-        #                                                       test_edges_false, emb, emb)
-        
-        # val_results, test_results = {"HAD": [0.0]}, {"HAD": [0.0]}
-        # epoch_auc_val = epoch_auc_test = 0.0
 
-        # epoch_auc_val = val_results["HAD"][1]
-        # epoch_auc_test = test_results["HAD"][1]
-
-        # print("Epoch {}, Val AUC {}".format(epoch, epoch_auc_val))
-        
-        # Link prediction evaluation is not run here, so the AUC bookkeeping
-        # below is kept only to preserve the loop's shape.
-        epoch_auc_val = epoch_auc_test = 0.0
-        logging.info("Epoch {}: evaluation skipped".format(epoch))
-        
-        print("Epoch {}, Test AUC {}".format(epoch, epoch_auc_test))
-        logging.info("Val results at epoch {}: Measure ({}) AUC: {}".format(epoch, "HAD", epoch_auc_val))
-        logging.info("Test results at epoch {}: Measure ({}) AUC: {}".format(epoch, "HAD", epoch_auc_test))
-
-        epochs_test_result["HAD"].append(epoch_auc_test)
-        epochs_val_result["HAD"].append(epoch_auc_val)
-        epochs_embeds.append(emb)
     epoch_loss /= it
     print("Mean Loss at epoch {} : {}".format(epoch, epoch_loss))
+    logging.info("Mean Loss at epoch {} : {}".format(epoch, epoch_loss))
 
-# Choose best model by validation set performance.
-best_epoch = epochs_val_result["HAD"].index(max(epochs_val_result["HAD"]))
+    if epoch_loss < best_loss - 1e-4:
+        best_loss, best_epoch, wait = epoch_loss, epoch, 0
+        saver.save(sess, MODEL_DIR + "/best")
+    else:
+        wait += 1
+        if wait >= patience:
+            print("Early stopping at epoch", epoch)
+            break
 
-print("Best epoch ", best_epoch)
-logging.info("Best epoch {}".format(best_epoch))
+print("Best epoch {} loss {}".format(best_epoch, best_loss))
+logging.info("Best epoch {} loss {}".format(best_epoch, best_loss))
 
-val_results, test_results, _, _ = evaluate_classifier(train_edges, train_edges_false, val_edges, val_edges_false,
-                                                      test_edges, test_edges_false, epochs_embeds[best_epoch],
-                                                      epochs_embeds[best_epoch])
+# Restore the best checkpoint and read the embeddings once. Dropout is off so the output is the deterministic representation, not a sampled one.
+saver.restore(sess, MODEL_DIR + "/best")
+minibatchIterator.test_reset()
+feed_dict = minibatchIterator.next_minibatch_feed_dict()
+feed_dict.update({placeholders['spatial_drop']: 0.0})
+feed_dict.update({placeholders['temporal_drop']: 0.0})
 
-print("Best epoch val results {}\n".format(val_results))
-print("Best epoch test results {}\n".format(test_results))
+emb_all = np.array(sess.run(model.final_output_embeddings, feed_dict=feed_dict))
 
-logging.info("Best epoch val results {}\n".format(val_results))
-logging.info("Best epoch test results {}\n".format(test_results))
-
-write_to_csv(val_results, output_file, FLAGS.model, FLAGS.dataset, num_time_steps, mod='val')
-write_to_csv(test_results, output_file, FLAGS.model, FLAGS.dataset, num_time_steps, mod='test')
-
-# # Save final embeddings in the save directory.
-# emb = epochs_embeds[best_epoch]
-# np.savez(SAVE_DIR + '/{}_embs_{}_{}.npz'.format(FLAGS.model, FLAGS.dataset, FLAGS.time_steps - 2), data=emb)
-
-# Save final embeddings in the save directory.
-# The original saves only the second-to-last snapshot, which is all the link
-# prediction benchmark needs. The full [N, T, F] tensor is kept as well, since
-# every year's position is the object of interest here.
-emb = epochs_embeds[best_epoch]
-np.savez(SAVE_DIR + '/{}_embs_{}_{}.npz'.format(FLAGS.model, FLAGS.dataset,
-                                                FLAGS.time_steps - 2), data=emb)
-np.save(SAVE_DIR + '/{}_embs_{}_all.npy'.format(FLAGS.model, FLAGS.dataset),
-        emb_all)
+np.save(SAVE_DIR + '/{}_embs_{}_all.npy'.format(FLAGS.model, FLAGS.dataset), emb_all)
+print("Saved embeddings", emb_all.shape)
+logging.info("Saved embeddings {}".format(emb_all.shape))
