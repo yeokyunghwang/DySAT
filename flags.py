@@ -60,3 +60,6 @@ flags.DEFINE_string('dysat_log_dir', "log", 'Log dir defaults to log/ within the
 flags.DEFINE_string('csv_dir', "csv", 'CSV dir defaults to csv/ within the base directory')
 flags.DEFINE_string('model_dir', "model", 'Model dir defaults to model/ within the base directory')
 flags.DEFINE_integer('window', -1, 'Window for temporal attention (default : -1 => full)')
+flags.DEFINE_integer('num_nodes', 0, 'Number of nodes in the fixed vocabulary')
+
+
