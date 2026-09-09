@@ -112,6 +112,7 @@ graphs, adjs = load_graphs(FLAGS.dataset)
 # num_features = feats[0].shape[1]
 
 n_nodes = adjs[num_time_steps - 1].shape[0]
+FLAGS.num_nodes = n_nodes 
 num_features = FLAGS.structural_layer_config.split(",")[0]
 num_features = int(num_features)
 feats = None
@@ -144,12 +145,6 @@ test_edges = test_edges_false = []
 
 # graphs[num_time_steps - 1] = new_G
 # adjs[num_time_steps - 1] = nx.adjacency_matrix(new_G)
-
-# The original code replaces the last snapshot with one that keeps its nodes
-# but takes its edges from t-1, so that link prediction at t is inductive.
-# That is removed here: the aim is an embedding for each of the 34 years as it
-# actually was, not a held-out prediction target, and overwriting 2023 with
-# 2022's edges would silently corrupt the last year's representation.
 
 print("# train: {}, # val: {}, # test: {}".format(len(train_edges), len(val_edges), len(test_edges)))
 logging.info("# train: {}, # val: {}, # test: {}".format(len(train_edges), len(val_edges), len(test_edges)))
