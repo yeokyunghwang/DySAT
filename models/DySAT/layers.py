@@ -234,7 +234,14 @@ class StructuralAttentionLayer(Layer):
             f_1 = tf.reshape(f_1, [-1, 1])  # [N, 1]
             f_2 = tf.reshape(f_2, [-1, 1])  # [N, 1]
 
-            logits = tf.sparse_add(adj_mat * f_1, adj_mat * tf.transpose(f_2))  # adj_mat is [N, N] (sparse)
+            # logits = tf.sparse_add(adj_mat * f_1, adj_mat * tf.transpose(f_2))  # adj_mat is [N, N] (sparse)
+            
+            idx = adj_mat.indices                                   # [nnz, 2]
+            vals = (tf.gather(tf.reshape(f_1, [-1]), idx[:, 0]) +
+                    tf.gather(tf.reshape(f_2, [-1]), idx[:, 1]))
+            logits = tf.SparseTensor(indices=idx,
+                                     values=vals,
+                                     dense_shape=adj_mat.dense_shape)
 
             leaky_relu = tf.SparseTensor(indices=logits.indices,
                                          values=self.leaky_relu(logits.values),
