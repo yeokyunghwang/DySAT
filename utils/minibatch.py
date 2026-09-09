@@ -100,7 +100,6 @@ class NodeMinibatchIterator(object):
         feed_dict.update({self.placeholders['node_1'][t-min_t]:node_1_all[t-min_t] for t in range(min_t, self.num_time_steps)})
         feed_dict.update({self.placeholders['node_2'][t-min_t]:node_2_all[t-min_t] for t in range(min_t, self.num_time_steps)})
         # feed_dict.update({self.placeholders['features'][t-min_t]:self.features[t] for t in range(min_t, self.num_time_steps)})
-        feed_dict.update({self.placeholders['features'][t-min_t]:self.features[t] for t in range(min_t, self.num_time_steps)})
         feed_dict.update({self.placeholders['adjs'][t-min_t]: self.adjs[t] for t in range(min_t, self.num_time_steps)})
 
         feed_dict.update({self.placeholders['batch_nodes']:np.array(batch_nodes).astype(np.int32)})
