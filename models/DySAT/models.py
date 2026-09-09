@@ -163,7 +163,16 @@ class DySAT(Model):
             self.temporal_attention_layers.append(temporal_layer)
 
         # 3: Structural Attention forward
-        input_list = self.placeholders['features']  # List of t feature matrices. [N x F]
+        # input_list = self.placeholders['features']  # List of t feature matrices. [N x F]
+
+        # Learnable node embedding table, shared across snapshots. 
+        node_table = tf.get_variable(
+            "node_embedding_table",
+            shape=[FLAGS.num_nodes, self.num_features],
+            initializer=tf.contrib.layers.xavier_initializer())
+        input_list = [node_table for _ in range(self.num_time_steps)]
+
+                      
         for layer in self.structural_attention_layers:
             attn_outputs = []
             for t in range(0, self.num_time_steps):
