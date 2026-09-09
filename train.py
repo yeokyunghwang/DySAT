@@ -120,9 +120,12 @@ loaded_pairs = False
 # Load training context pairs (or compute them if necessary)
 context_pairs_train = get_context_pairs(graphs, num_time_steps)
 
-# Load evaluation data.
-train_edges, train_edges_false, val_edges, val_edges_false, test_edges, test_edges_false = \
-    get_evaluation_data(adjs, num_time_steps, FLAGS.dataset)
+# # Load evaluation data.
+# train_edges, train_edges_false, val_edges, val_edges_false, test_edges, test_edges_false = \
+#     get_evaluation_data(adjs, num_time_steps, FLAGS.dataset)
+
+train_edges = train_edges_false = val_edges = val_edges_false = []
+test_edges = test_edges_false = []
 
 # # Create the adj_train so that it includes nodes from (t+1) but only edges from t: this is for the purpose of
 # # inductive testing.
@@ -149,8 +152,12 @@ logging.info("# train: {}, # val: {}, # test: {}".format(len(train_edges), len(v
 adj_train = list(map(lambda adj: normalize_graph_gcn(adj), adjs))
 
 if FLAGS.featureless:  # Use 1-hot matrix in case of featureless.
-    feats = [scipy.sparse.identity(adjs[num_time_steps - 1].shape[0]).tocsr()[range(0, x.shape[0]), :] for x in feats if
-             x.shape[0] <= feats[num_time_steps - 1].shape[0]]
+    # feats = [scipy.sparse.identity(adjs[num_time_steps - 1].shape[0]).tocsr()[range(0, x.shape[0]), :] for x in feats if
+    #          x.shape[0] <= feats[num_time_steps - 1].shape[0]]
+    
+    n_nodes = adjs[num_time_steps - 1].shape[0]
+    feats = [scipy.sparse.identity(n_nodes).tocsr() for _ in adjs]
+    
 num_features = feats[0].shape[1]
 
 # feats_train = map(lambda feat: preprocess_features(feat)[1], feats)
@@ -246,9 +253,12 @@ for epoch in range(FLAGS.epochs):
         emb = emb_all[:, model.final_output_embeddings.get_shape()[1] - 2, :]
         
         # Use external classifier to get validation and test results.
-        val_results, test_results, _, _ = evaluate_classifier(train_edges,
-                                                              train_edges_false, val_edges, val_edges_false, test_edges,
-                                                              test_edges_false, emb, emb)
+        # val_results, test_results, _, _ = evaluate_classifier(train_edges,
+        #                                                       train_edges_false, val_edges, val_edges_false, test_edges,
+        #                                                       test_edges_false, emb, emb)
+        
+        val_results, test_results = {"HAD": [0.0]}, {"HAD": [0.0]}
+        epoch_auc_val = epoch_auc_test = 0.0
 
         epoch_auc_val = val_results["HAD"][1]
         epoch_auc_test = test_results["HAD"][1]
