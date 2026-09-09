@@ -137,7 +137,7 @@ class DySAT(Model):
     def build_net(self, attn_head_config, attn_layer_config, temporal_head_config, temporal_layer_config,
                   spatial_drop, temporal_drop, adjs):
         input_dim = self.num_features
-        sparse_inputs = True
+        sparse_inputs = False #True
 
         # 1: Structural Attention Layers
         for i in range(0, len(attn_layer_config)):
