@@ -103,18 +103,25 @@ as per each day => new log file for each day.
 num_time_steps = FLAGS.time_steps
 
 graphs, adjs = load_graphs(FLAGS.dataset)
-if FLAGS.featureless:
-    feats = [scipy.sparse.identity(adjs[num_time_steps - 1].shape[0]).tocsr()[range(0, x.shape[0]), :] for x in adjs if
-             x.shape[0] <= adjs[num_time_steps - 1].shape[0]]
-else:
-    feats = load_feats(FLAGS.dataset)
+# if FLAGS.featureless:
+#     feats = [scipy.sparse.identity(adjs[num_time_steps - 1].shape[0]).tocsr()[range(0, x.shape[0]), :] for x in adjs if
+#              x.shape[0] <= adjs[num_time_steps - 1].shape[0]]
+# else:
+#     feats = load_feats(FLAGS.dataset)
 
-num_features = feats[0].shape[1]
+# num_features = feats[0].shape[1]
+
+n_nodes = adjs[num_time_steps - 1].shape[0]
+num_features = FLAGS.structural_layer_config.split(",")[0]
+num_features = int(num_features)
+feats = None
+num_features_nonzero = None
+
 assert num_time_steps < len(adjs) + 1  # So that, (t+1) can be predicted.
 
 adj_train = []
 feats_train = []
-num_features_nonzero = []
+num_features_nonzero = None
 loaded_pairs = False
 
 # Load training context pairs (or compute them if necessary)
@@ -149,7 +156,9 @@ logging.info("# train: {}, # val: {}, # test: {}".format(len(train_edges), len(v
 
 # Normalize and convert adj. to sparse tuple format (to provide as input via SparseTensor)
 # adj_train = map(lambda adj: normalize_graph_gcn(adj), adjs)
+
 adj_train = list(map(lambda adj: normalize_graph_gcn(adj), adjs))
+feats_train = [None] * len(adj_train)
 
 if FLAGS.featureless:  # Use 1-hot matrix in case of featureless.
     # feats = [scipy.sparse.identity(adjs[num_time_steps - 1].shape[0]).tocsr()[range(0, x.shape[0]), :] for x in feats if
@@ -157,7 +166,7 @@ if FLAGS.featureless:  # Use 1-hot matrix in case of featureless.
     
     n_nodes = adjs[num_time_steps - 1].shape[0]
     feats = [scipy.sparse.identity(n_nodes).tocsr() for _ in adjs]
-    
+
 num_features = feats[0].shape[1]
 
 # feats_train = map(lambda feat: preprocess_features(feat)[1], feats)
@@ -178,8 +187,9 @@ def construct_placeholders(num_time_steps):
         'node_2': [tf.placeholder(tf.int32, shape=(None,), name="node_2") for _ in range(min_t, num_time_steps)],
         # [None,1] for each time step.
         'batch_nodes': tf.placeholder(tf.int32, shape=(None,), name="batch_nodes"),  # [None,1]
-        'features': [tf.sparse_placeholder(tf.float32, shape=(None, num_features), name="feats") for _ in
-                     range(min_t, num_time_steps)],
+        # 'features': [tf.sparse_placeholder(tf.float32, shape=(None, num_features), name="feats") for _ in
+        #              range(min_t, num_time_steps)],
+         'features': [None for _ in range(min_t, num_time_steps)],
         'adjs': [tf.sparse_placeholder(tf.float32, shape=(None, None), name="adjs") for i in
                  range(min_t, num_time_steps)],
         'spatial_drop': tf.placeholder(dtype=tf.float32, shape=(), name='spatial_drop'),
