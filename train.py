@@ -262,13 +262,19 @@ for epoch in range(FLAGS.epochs):
         #                                                       train_edges_false, val_edges, val_edges_false, test_edges,
         #                                                       test_edges_false, emb, emb)
         
-        val_results, test_results = {"HAD": [0.0]}, {"HAD": [0.0]}
+        # val_results, test_results = {"HAD": [0.0]}, {"HAD": [0.0]}
+        # epoch_auc_val = epoch_auc_test = 0.0
+
+        # epoch_auc_val = val_results["HAD"][1]
+        # epoch_auc_test = test_results["HAD"][1]
+
+        # print("Epoch {}, Val AUC {}".format(epoch, epoch_auc_val))
+        
+        # Link prediction evaluation is not run here, so the AUC bookkeeping
+        # below is kept only to preserve the loop's shape.
         epoch_auc_val = epoch_auc_test = 0.0
-
-        epoch_auc_val = val_results["HAD"][1]
-        epoch_auc_test = test_results["HAD"][1]
-
-        print("Epoch {}, Val AUC {}".format(epoch, epoch_auc_val))
+        logging.info("Epoch {}: evaluation skipped".format(epoch))
+        
         print("Epoch {}, Test AUC {}".format(epoch, epoch_auc_test))
         logging.info("Val results at epoch {}: Measure ({}) AUC: {}".format(epoch, "HAD", epoch_auc_val))
         logging.info("Test results at epoch {}: Measure ({}) AUC: {}".format(epoch, "HAD", epoch_auc_test))
